@@ -1,0 +1,284 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+<meta charset="UTF-8">
+<title>Mikołajkowe losowanie 🎅</title>
+<link rel="icon" type="image/png" href="logo.png">
+
+<style>
+    /* —————— RESET —————— */
+    * {
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
+    }
+
+    /* —————— TŁO GŁÓWNE —————— */
+    body {
+        font-family: "Segoe UI", Arial, sans-serif;
+        background: url("backround-image-pc.png") no-repeat center center fixed;
+        background-size: cover;
+        overflow-x: hidden;
+        min-height: 100vh;
+        color: white;
+    }
+
+    /* —————— ANIMACJA ŚNIEGU —————— */
+    .snow {
+        position: fixed;
+        top: 0; left: 0;
+        width: 100vw;
+        height: 100vh;
+        pointer-events: none;
+        z-index: 1;
+        overflow: hidden;
+    }
+    .snow span {
+        position: absolute;
+        top: -10px;
+        width: 8px;
+        height: 8px;
+        background: white;
+        border-radius: 50%;
+        opacity: 0.8;
+        animation: fall linear infinite;
+    }
+
+    @keyframes fall {
+        0% { transform: translateY(-10px); }
+        100% { transform: translateY(110vh); }
+    }
+
+    /* —————— PANEL —————— */
+    .box {
+        position: relative;
+        z-index: 10;
+        background: rgba(255,255,255,0.15);
+        backdrop-filter: blur(10px);
+        padding: 25px;
+        width: 350px;
+        margin: 80px auto;
+        border-radius: 15px;
+        text-align: center;
+        animation: fadeIn 1s ease;
+    }
+
+    @keyframes fadeIn {
+        from { opacity: 0; transform: scale(0.9); }
+        to { opacity: 1; transform: scale(1); }
+    }
+
+    input, textarea, button {
+        width: 100%;
+        padding: 12px;
+        margin: 7px 0;
+        border-radius: 8px;
+        border: none;
+    }
+
+    input, textarea {
+        background: rgba(255,255,255,0.85);
+    }
+
+    button {
+        background: #ff5757;
+        color: white;
+        font-weight: bold;
+        cursor: pointer;
+        transition: 0.2s;
+    }
+
+    button:hover {
+        background: #e64545;
+        transform: scale(1.05);
+    }
+
+    /* —————— UKRYWANE PANELE —————— */
+    #panel, #losowaniePanel, #registerBox {
+        display: none;
+    }
+
+    /* —————— RESPONSYWNOŚĆ —————— */
+    @media (max-width: 480px){
+        .box {
+            width: 90%;
+            margin-top: 40px;
+        }
+    }
+</style>
+</head>
+
+<body>
+
+<!-- —————— DŹWIĘK —————— -->
+<audio id="fireAudio" autoplay loop>
+    <source src="fire.mp3" type="audio/mpeg">
+</audio>
+
+<!-- —————— ŚNIEG —————— -->
+<div class="snow" id="snowContainer"></div>
+
+<!-- —————— LOGOWANIE —————— -->
+<div class="box" id="loginBox">
+    <h2>Logowanie 🔐</h2>
+    <input id="loginUser" placeholder="Login">
+    <input id="loginPass" type="password" placeholder="Hasło">
+    <button onclick="login()">Zaloguj</button>
+    <p>Nie masz konta?</p>
+    <button onclick="showRegister()">Zarejestruj się</button>
+</div>
+
+<!-- —————— REJESTRACJA —————— -->
+<div class="box" id="registerBox">
+    <h2>Rejestracja 📝</h2>
+    <input id="regUser" placeholder="Login">
+    <input id="regPass" type="password" placeholder="Hasło">
+    <button onclick="register()">Utwórz konto</button>
+    <button onclick="showLogin()">Powrót</button>
+</div>
+
+<!-- —————— PANEL —————— -->
+<div class="box" id="panel">
+    <h2>Lista osób 🎁</h2>
+
+    <input id="imie" placeholder="Imię osoby">
+    <textarea id="opis" placeholder="Co osoba chciałaby dostać?"></textarea>
+    <button onclick="dodajOsobe()">Dodaj osobę ➕</button>
+
+    <h3>Aktualna lista:</h3>
+    <ul id="lista"></ul>
+
+    <button onclick="losuj()">Wylosuj osobę 🎉</button>
+    <button onclick="resetujLosowanie()">Zacznij ponownie 🔄</button>
+</div>
+
+<!-- —————— WYNIK —————— -->
+<div class="box" id="losowaniePanel">
+    <h2>Wylosowana osoba 😊</h2>
+    <p id="wynik"></p>
+    <button onclick="zamknijWynik()">OK</button>
+</div>
+
+<script>
+/* —————————— GENEROWANIE ŚNIEGU —————————— */
+function generateSnow(){
+    const container = document.getElementById("snowContainer");
+
+    for(let i=0;i<70;i++){
+        const s = document.createElement("span");
+        const size = Math.random()*6 + 4;
+        const left = Math.random()*100;
+        const duration = Math.random()*5 + 5;
+
+        s.style.width = size + "px";
+        s.style.height = size + "px";
+        s.style.left = left + "vw";
+        s.style.animationDuration = duration + "s";
+        container.appendChild(s);
+    }
+}
+generateSnow();
+
+/* —————————— HASHOWANIE LOGINU —————————— */
+
+async function sha256(text){
+    const encoder = new TextEncoder();
+    const data = encoder.encode(text);
+    const hashBuffer = await crypto.subtle.digest("SHA-256", data);
+    const hashArray = Array.from(new Uint8Array(hashBuffer));
+    return hashArray.map(b => b.toString(16).padStart(2, "0")).join("");
+}
+
+async function register(){
+    const u = document.getElementById("regUser").value;
+    const p = document.getElementById("regPass").value;
+
+    if(!u || !p) return alert("Wpisz login i hasło!");
+
+    const hash = await sha256(p);
+
+    localStorage.setItem("user", u);
+    localStorage.setItem("pass", hash);
+
+    alert("Konto utworzone!");
+    showLogin();
+}
+
+async function login(){
+    const u = document.getElementById("loginUser").value;
+    const p = document.getElementById("loginPass").value;
+
+    const savedUser = localStorage.getItem("user");
+    const savedPass = localStorage.getItem("pass");
+
+    const hash = await sha256(p);
+
+    if(u === savedUser && hash === savedPass){
+        loginBox.style.display = "none";
+        panel.style.display = "block";
+    } else {
+        alert("Błędny login lub hasło!");
+    }
+}
+
+function showRegister(){
+    loginBox.style.display = "none";
+    registerBox.style.display = "block";
+}
+
+function showLogin(){
+    registerBox.style.display = "none";
+    loginBox.style.display = "block";
+}
+
+/* —————————— LISTA I LOSOWANIE —————————— */
+
+const osoby = [];
+let wylosowaneOsoby = [];
+
+function dodajOsobe(){
+    const imie = document.getElementById("imie").value;
+    const opis = document.getElementById("opis").value;
+
+    if(!imie || !opis) return alert("Uzupełnij wszystkie pola!");
+
+    osoby.push({imie, opis});
+
+    document.getElementById("lista").innerHTML =
+        osoby.map(o => `<li><b>${o.imie}</b> – ${o.opis}</li>`).join("");
+}
+
+function losuj(){
+    if(osoby.length === 0) return alert("Brak osób!");
+
+    if(wylosowaneOsoby.length === osoby.length){
+        wynik.innerHTML = "<h3>Wszyscy zostali wylosowani 🎉</h3>";
+        losowaniePanel.style.display = "block";
+        return;
+    }
+
+    let index;
+    do {
+        index = Math.floor(Math.random()*osoby.length);
+    } while(wylosowaneOsoby.includes(index));
+
+    wylosowaneOsoby.push(index);
+
+    const o = osoby[index];
+    wynik.innerHTML = `<h3>${o.imie} 🎁</h3><p>Chce: ${o.opis}</p>`;
+    losowaniePanel.style.display = "block";
+}
+
+function zamknijWynik(){
+    losowaniePanel.style.display = "none";
+}
+
+function resetujLosowanie(){
+    wylosowaneOsoby = [];
+    alert("Zresetowano losowanie!");
+}
+
+</script>
+
+</body>
+</html>
